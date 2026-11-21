@@ -15,19 +15,22 @@ spec:
         prometheus.io/port: "3001"
         prometheus.io/path: /metrics
     spec:
-      serviceAccountName: default # À remplacer par un SA dédié si tu le crées
-      automountServiceAccountToken: false # Bonne pratique de sécurité
+      serviceAccountName: default
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
         fsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
       affinity:
-        podAntiAffinity: # Répartir les réplicas sur des nœuds différents
+        podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels: {app: users-service}
-              topologyKey: kubernetes.io/hostname
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels: {app: users-service}
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: users-service
           image: ghcr.io/meryemelheni/users-service:latest
@@ -45,18 +48,15 @@ spec:
               valueFrom: {secretKeyRef: {name: library-secrets, key: POSTGRES_PASSWORD}}
             - name: JWT_SECRET
               valueFrom: {secretKeyRef: {name: library-secrets, key: JWT_SECRET}}
-            # CORRECTION : Ajout de SERVICE_API_KEY manquant
             - name: SERVICE_API_KEY
               valueFrom: {secretKeyRef: {name: library-secrets, key: SERVICE_API_KEY}}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true # Sécurité renforcée
+            readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
-            seccompProfile: {type: RuntimeDefault}
           volumeMounts:
-            - name: tmp
-              mountPath: /tmp # Nécessaire pour readOnlyRootFilesystem
-          startupProbe: # CORRECTION : Ajouté pour gérer les démarrages lents
+            - {name: tmp, mountPath: /tmp}
+          startupProbe:
             httpGet: {path: /health, port: 3001}
             failureThreshold: 30
             periodSeconds: 5
@@ -72,8 +72,7 @@ spec:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 500m, memory: 384Mi}
       volumes:
-        - name: tmp
-          emptyDir: {}
+        - {name: tmp, emptyDir: {}}
 ---
 apiVersion: v1
 kind: Service

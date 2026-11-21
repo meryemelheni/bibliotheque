@@ -4,7 +4,7 @@ metadata:
   name: loans-service
   namespace: library
 spec:
-  replicas: 2 # CORRECTION : Passé à 2 réplicas (MongoDB supporte plusieurs instances)
+  replicas: 1   # 1 seul replica : les jobs cron ne doivent tourner qu'une fois
   selector:
     matchLabels: {app: loans-service}
   template:
@@ -19,15 +19,10 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
         fsGroup: 1001
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels: {app: loans-service}
-              topologyKey: kubernetes.io/hostname
+        seccompProfile: {type: RuntimeDefault}
       containers:
         - name: loans-service
           image: ghcr.io/meryemelheni/loans-service:latest
@@ -49,10 +44,8 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
-            seccompProfile: {type: RuntimeDefault}
           volumeMounts:
-            - name: tmp
-              mountPath: /tmp
+            - {name: tmp, mountPath: /tmp}
           startupProbe:
             httpGet: {path: /health, port: 3003}
             failureThreshold: 30
@@ -69,8 +62,7 @@ spec:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 500m, memory: 384Mi}
       volumes:
-        - name: tmp
-          emptyDir: {}
+        - {name: tmp, emptyDir: {}}
 ---
 apiVersion: v1
 kind: Service

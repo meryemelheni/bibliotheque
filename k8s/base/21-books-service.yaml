@@ -4,7 +4,7 @@ metadata:
   name: books-service
   namespace: library
 spec:
-  replicas: 1 # Gardé à 1 car le PVC est en RWO
+  replicas: 1   # 1 seul replica : le PVC local-path est en ReadWriteOnce
   selector:
     matchLabels: {app: books-service}
   template:
@@ -19,7 +19,10 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
         fsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
       containers:
         - name: books-service
           image: ghcr.io/meryemelheni/books-service:latest
@@ -43,7 +46,6 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
-            seccompProfile: {type: RuntimeDefault}
           volumeMounts:
             - {name: uploads, mountPath: /app/uploads}
             - {name: tmp, mountPath: /tmp}
@@ -65,8 +67,7 @@ spec:
       volumes:
         - name: uploads
           persistentVolumeClaim: {claimName: books-uploads}
-        - name: tmp
-          emptyDir: {}
+        - {name: tmp, emptyDir: {}}
 ---
 apiVersion: v1
 kind: Service
