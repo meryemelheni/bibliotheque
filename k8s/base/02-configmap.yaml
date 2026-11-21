@@ -8,5 +8,7 @@ data:
   JWT_EXPIRATION: 1h
   JWT_REFRESH_EXPIRATION: 7d
   BOOKS_SERVICE_URL: http://books-service:3002
-  CORS_ORIGINS: http://library.local
-  COOKIE_SECURE: "false"   # passer à "true" une fois l'Ingress en HTTPS
+  USERS_SERVICE_URL: http://users-service:3001
+  CRON_TIMEZONE: Africa/Tunis
+  CORS_ORIGINS: http://library.local,http://localhost
+  COOKIE_SECURE: "false"
