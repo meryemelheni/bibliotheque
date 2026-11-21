@@ -10,18 +10,22 @@ RUN npm install --omit=dev --no-audit
 # ─── Production stage ────────────────────────────────────────────────────────
 FROM node:20-alpine
 
-# Security: run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Sécurité : patcher l'OS et retirer npm/yarn/corepack (inutiles à l'exécution)
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+
+# Utilisateur non-root avec UID/GID fixes (cohérent avec runAsUser dans K8s)
+RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 
 WORKDIR /app
 
-# Copy production dependencies from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 COPY src/ ./src/
 COPY seed.js ./seed.js
 
-# Set ownership
 RUN chown -R appuser:appgroup /app
 
 USER appuser
