@@ -11,15 +11,53 @@ spec:
     metadata:
       labels: {app: frontend}
     spec:
+      serviceAccountName: default
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101 # UID de l'utilisateur nginx
+        fsGroup: 101
+        seccompProfile: {type: RuntimeDefault}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels: {app: frontend}
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: frontend
-          image: REGISTRY/frontend:TAG
-          ports: [{containerPort: 80}]
+          image: ghcr.io/meryemelheni/frontend:latest
+          imagePullPolicy: Always
+          ports: [{containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+          startupProbe:
+            httpGet: {path: /, port: 8080}
+            failureThreshold: 30
+            periodSeconds: 5
           readinessProbe:
-            httpGet: {path: /, port: 80}
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 15
           resources:
             requests: {cpu: 20m, memory: 32Mi}
             limits: {cpu: 200m, memory: 128Mi}
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -28,7 +66,7 @@ metadata:
   namespace: library
 spec:
   selector: {app: frontend}
-  ports: [{port: 80, targetPort: 80}]
+  ports: [{port: 80, targetPort: 8080}]
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -36,9 +74,9 @@ metadata:
   name: library
   namespace: library
 spec:
-  ingressClassName: traefik          # Ingress controller par défaut de K3s
+  ingressClassName: traefik
   rules:
-    - host: library.local            # ajouter "<IP-du-noeud> library.local" dans /etc/hosts
+    - host: library.local
       http:
         paths:
           - path: /
