@@ -10,19 +10,19 @@ RUN npm install --omit=dev --no-audit
 # ---- Production Stage ----
 FROM node:20-alpine
 
-# Security: run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+
+RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 
 WORKDIR /app
 
-# Copy production dependencies from builder
 COPY --from=builder /app/node_modules ./node_modules
-
-# Copy application source
 COPY package*.json ./
 COPY src ./src
 
-# Set ownership to non-root user
 RUN chown -R appuser:appgroup /app
 
 USER appuser

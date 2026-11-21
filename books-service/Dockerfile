@@ -10,25 +10,24 @@ RUN npm install --omit=dev --no-audit
 # ---- Production stage ----
 FROM node:20-alpine
 
-RUN apk add --no-cache dumb-init
+RUN apk upgrade --no-cache \
+ && apk add --no-cache dumb-init \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 
 ENV NODE_ENV=production
 
 WORKDIR /app
 
-# Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
     adduser -S appuser -u 1001 -G appgroup
 
-# Copy dependencies from builder
 COPY --from=builder /app/node_modules ./node_modules
-
-# Copy application source
 COPY package*.json ./
 COPY src ./src
 COPY seed.js ./
 
-# Create uploads directory with proper permissions
 RUN mkdir -p uploads && chown -R appuser:appgroup /app
 
 USER appuser
